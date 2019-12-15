@@ -9,20 +9,39 @@ const geocoder = require('../utils/geocoder');
 exports.getBootcamps = asyncHandler(async (req, res, next) => {
   let query;
 
-  let queryString = JSON.stringify(req.query);
+  const reqQuery = { ...req.query };
+
+  const removeFields = ['select', 'sort'];
+
+  removeFields.forEach(param => delete reqQuery[param]);
+
+  console.log(reqQuery);
+
+  let queryString = JSON.stringify(reqQuery);
 
   queryString = queryString.replace(/\b(gt|gte|lt|lte|in)\b/g, match => {
-    return `$${match}`
+    return `$${match}`;
   });
 
   query = Bootcamp.find(JSON.parse(queryString));
 
+  if (req.query.select) {
+    const fields = req.query.select.split(',').join(' ');
+    query = query.select(fields);
+  }
+  if (req.query.sort) {
+    const sortBy = req.query.select.split(',').join(' ');
+    query = query.sort(sortBy);
+  } else {
+    query.sortBy('name');
+  }
+
   const bootcamps = await query;
   res.status(200).json({
     success: true,
-    msg: bootcamps
+    data: bootcamps
   });
-})
+});
 
 // @desc Get Bootcamp with id
 // @route GET /api/v1/bootcamps/:id
@@ -31,19 +50,14 @@ exports.getBootcamp = asyncHandler(async (req, res, next) => {
   const bootcamp = await Bootcamp.findById(req.params.id);
   if (!bootcamp) {
     return next(
-      new ErrorResponse(
-        `Bootcamp with id ${req.params.id} not found`,
-        404
-      )
-    )
+      new ErrorResponse(`Bootcamp with id ${req.params.id} not found`, 404)
+    );
   }
-  res
-    .status(200)
-    .json({
-      success: true,
-      data: bootcamp
-    });
-})
+  res.status(200).json({
+    success: true,
+    data: bootcamp
+  });
+});
 
 // @desc Create New Bootcamp
 // @route POST /api/v1/bootcamps
@@ -52,17 +66,14 @@ exports.postBootcamp = asyncHandler(async (req, res, next) => {
   const bootcamp = await Bootcamp.create(req.body);
   if (!bootcamp) {
     return next(
-      new ErrorResponse(
-        `Bootcamp with id ${req.params.id} not found`,
-        404
-      )
-    )
+      new ErrorResponse(`Bootcamp with id ${req.params.id} not found`, 404)
+    );
   }
   res.status(201).json({
     success: true,
     data: bootcamp
   });
-})
+});
 
 // @desc Update Bootcamp with id
 // @route PUT /api/v1/bootcamps/:id
@@ -71,49 +82,38 @@ exports.updateBootcamp = asyncHandler(async (req, res, next) => {
   const bootcamp = await Bootcamp.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true
-  })
+  });
   if (!bootcamp) {
     return next(
-      new ErrorResponse(
-        `Bootcamp with id ${req.params.id} not found`,
-        404
-      )
-    )
+      new ErrorResponse(`Bootcamp with id ${req.params.id} not found`, 404)
+    );
   }
   res.status(200).json({
     success: true,
     data: bootcamp
-  })
-})
+  });
+});
 
 // @desc Delete Bootcamp with id
 // @route DELETE /api/v1/bootcamps/:id
 // @access PRIVATE
 exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findByIdAndDelete(req.params.id)
+  const bootcamp = await Bootcamp.findByIdAndDelete(req.params.id);
   if (!bootcamp) {
     return next(
-      new ErrorResponse(
-        `Bootcamp with id ${req.params.id} not found`,
-        404
-      )
-    )
+      new ErrorResponse(`Bootcamp with id ${req.params.id} not found`, 404)
+    );
   }
-  res
-    .status(200)
-    .json({
-      success: true,
-    });
-})
+  res.status(200).json({
+    success: true
+  });
+});
 
 // @desc    Get Bootcamps within a radius
 // @route   GET /api/v1/bootcamps/radius/:zipcode/:distance
 // @access  PUBLIC
 exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
-  const {
-    zipcode,
-    distance
-  } = req.params;
+  const { zipcode, distance } = req.params;
 
   // Get lat/lng from GEOCODER
   const loc = await geocoder.geocode(zipcode);
@@ -123,24 +123,18 @@ exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
   // Calc radius using radians
   // divide distance by radius of earth
   // Earth radius: 3,963
-  const radius = distance / 3963
+  const radius = distance / 3963;
 
   const bootcamps = await Bootcamp.find({
     location: {
       $geoWithin: {
-        $centerSphere: [
-          [
-            lng,
-            lat
-          ],
-          radius
-        ]
+        $centerSphere: [[lng, lat], radius]
       }
     }
-  })
+  });
   res.status(200).json({
     success: true,
     count: bootcamps.length,
     data: bootcamps
-  })
-})
+  });
+});
