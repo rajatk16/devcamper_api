@@ -9,13 +9,13 @@ const geocoder = require('../utils/geocoder');
 exports.getBootcamps = asyncHandler(async (req, res, next) => {
   let query;
 
-  const reqQuery = { ...req.query };
+  const reqQuery = {
+    ...req.query
+  };
 
   const removeFields = ['select', 'sort', 'page', 'limit'];
 
   removeFields.forEach(param => delete reqQuery[param]);
-
-  console.log(reqQuery);
 
   let queryString = JSON.stringify(reqQuery);
 
@@ -23,7 +23,7 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
     return `$${match}`;
   });
 
-  query = Bootcamp.find(JSON.parse(queryString));
+  query = Bootcamp.find(JSON.parse(queryString)).populate('courses');
 
   if (req.query.select) {
     const fields = req.query.select.split(',').join(' ');
@@ -123,12 +123,15 @@ exports.updateBootcamp = asyncHandler(async (req, res, next) => {
 // @route DELETE /api/v1/bootcamps/:id
 // @access PRIVATE
 exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findByIdAndDelete(req.params.id);
+  const bootcamp = await Bootcamp.findById(req.params.id);
   if (!bootcamp) {
     return next(
       new ErrorResponse(`Bootcamp with id ${req.params.id} not found`, 404)
     );
   }
+
+  bootcamp.remove();
+
   res.status(200).json({
     success: true
   });
@@ -138,7 +141,10 @@ exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/bootcamps/radius/:zipcode/:distance
 // @access  PUBLIC
 exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
-  const { zipcode, distance } = req.params;
+  const {
+    zipcode,
+    distance
+  } = req.params;
 
   // Get lat/lng from GEOCODER
   const loc = await geocoder.geocode(zipcode);
@@ -153,7 +159,9 @@ exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
   const bootcamps = await Bootcamp.find({
     location: {
       $geoWithin: {
-        $centerSphere: [[lng, lat], radius]
+        $centerSphere: [
+          [lng, lat], radius
+        ]
       }
     }
   });
